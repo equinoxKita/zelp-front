@@ -44,13 +44,21 @@ export function isAdmin() {
 export function logout() {
   removeToken();
   removeUser();
+  localStorage.removeItem('_admin_token');
+  localStorage.removeItem('_admin_user');
   window.location.href = '/login';
 }
 
 export function returnToAdmin() {
   const adminToken = getAdminToken();
+  const adminUser = localStorage.getItem('_admin_user');
   if (!adminToken) return;
+  
   setToken(adminToken);
+  if (adminUser) {
+    localStorage.setItem('zelpstore_user', adminUser);
+  }
+  
   localStorage.removeItem('_admin_token');
   localStorage.removeItem('_admin_user');
   window.location.href = '/admin';

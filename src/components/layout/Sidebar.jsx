@@ -251,12 +251,7 @@ export default function Sidebar({ mobileOpen, onClose }) {
   };
 
   const returnToAdmin = () => {
-    const adminToken = localStorage.getItem('_admin_token');
-    if (!adminToken) return;
-    api.setToken(adminToken);
-    localStorage.removeItem('_admin_token');
-    navigate('/admin');
-    window.location.reload();
+    api.returnToAdmin();
   };
 
 
