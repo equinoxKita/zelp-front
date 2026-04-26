@@ -6,15 +6,19 @@ import { Server, ArrowLeft, Terminal, RefreshCw, Cpu, Database, HardDrive } from
 import api from '../services/api';
 import { formatNumber, formatDate, formatMB } from '../utils/helpers';
 import { useToast } from '../context/ToastContext';
+import Swal from 'sweetalert2';
+import { useAuth } from '../context/AuthContext';
+import DOMPurify from 'dompurify';
 
 export default function ServiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const showToast = useToast();
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
-  
+
   // Quick Login, Recreate, Egg states
   const [isQuickLoggingIn, setIsQuickLoggingIn] = useState(false);
   const [isRecreating, setIsRecreating] = useState(false);
@@ -24,20 +28,37 @@ export default function ServiceDetail() {
   const [eggs, setEggs] = useState([]);
   const [selectedNest, setSelectedNest] = useState('');
   const [selectedEgg, setSelectedEgg] = useState('');
+  const [selectedEggName, setSelectedEggName] = useState('');
 
   useEffect(() => {
     api.get(`/orders/${id}`)
-      .then((data) => setService(data))
-      .catch((err) => { showToast(err.message, 'error'); navigate('/subscriptions'); })
+      .then((data) => {
+        // IDOR Protection: Ensure user owns this service
+        if (data.user_id !== user.id && user.role !== 'admin') {
+          showToast('Akses ditolak.', 'error');
+          return navigate('/subscriptions');
+        }
+        setService(data);
+      })
+      .catch((err) => {
+        showToast(err.message, 'error');
+        navigate('/subscriptions');
+      })
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, user, navigate, showToast]);
 
   useEffect(() => {
+    let isMounted = true;
     if (!service?.ptero_identifier) return;
     const interval = setInterval(() => {
-      api.get(`/orders/${id}/stats`).then((d) => setStats(d.resources)).catch(() => {});
+      api.get(`/orders/${id}/stats`).then((d) => {
+        if (isMounted) setStats(d.resources);
+      }).catch(() => { });
     }, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [service, id]);
 
   if (loading) return (
@@ -54,15 +75,102 @@ export default function ServiceDetail() {
   const totalDisk = (service.disk_mb || 0) + (service.extra_disk_mb || 0);
 
   const handleQuickLogin = async () => {
-    if (!window.confirm('Fitur Quick Login akan me-reset password akun Pterodactyl Anda demi keamanan. Lanjutkan?')) return;
+    const result = await Swal.fire({
+      title: 'Quick Login?',
+      text: 'Fitur ini akan me-reset password akun Pterodactyl Anda demi keamanan. Password baru akan disimpan di sistem.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Lanjutkan',
+      cancelButtonText: 'Batal',
+      background: '#1a1a1a',
+      color: '#fff',
+      confirmButtonColor: '#3b82f6',
+      cancelButtonColor: '#262626',
+      customClass: {
+        popup: 'rounded-3xl border border-white/5 shadow-2xl',
+        confirmButton: 'rounded-xl font-bold px-6 py-3',
+        cancelButton: 'rounded-xl font-bold px-6 py-3'
+      }
+    });
+
+    if (!result.isConfirmed) return;
+
     setIsQuickLoggingIn(true);
     try {
       const res = await api.post('/pterodactyl/quick-login');
-      showToast(res.message, 'success');
-      if (res.redirect) window.open(res.redirect, '_blank');
-      else if (res.panel_url) window.open(res.panel_url, '_blank');
+
+      const sanitizedEmail = DOMPurify.sanitize(user?.email || '-');
+      const sanitizedPassword = DOMPurify.sanitize(res.password || '-');
+
+      Swal.fire({
+        title: 'Login Berhasil!',
+        html: DOMPurify.sanitize(`
+          <div class="text-left space-y-4">
+            <p class="text-sm text-text-muted">Password Pterodactyl Anda telah di-reset. Simpan detail berikut:</p>
+            <div class="space-y-3">
+              <div class="bg-black/20 p-4 rounded-2xl border border-white/5 flex flex-col gap-1">
+                <span class="text-[10px] uppercase font-black text-text-muted tracking-widest">Email / Username</span>
+                <span class="text-sm font-bold text-text-primary select-all">${sanitizedEmail}</span>
+              </div>
+              <div class="bg-black/20 p-4 rounded-2xl border border-blue-500/10 flex flex-col gap-1 relative group">
+                <span class="text-[10px] uppercase font-black text-text-muted tracking-widest">Password Baru</span>
+                <div class="flex items-center justify-between">
+                  <span id="ptero-password" class="text-sm font-mono text-blue-400 filter blur-sm hover:blur-none transition-all duration-300 cursor-pointer select-all" title="Klik atau arahkan kursor untuk melihat">
+                    ${sanitizedPassword}
+                  </span>
+                  <span class="text-[9px] text-text-muted font-bold opacity-50">ARAHKAN KURSOR UNTUK MELIHAT</span>
+                </div>
+              </div>
+            </div>
+            <div class="p-3 bg-yellow-500/10 rounded-xl border border-yellow-500/20">
+              <p class="text-[11px] text-yellow-500 font-bold leading-relaxed">
+                ⚠️ Segera ganti password ini di dalam panel jika diperlukan. Password ini hanya ditampilkan sekali.
+              </p>
+            </div>
+          </div>
+        `),
+        icon: 'success',
+        confirmButtonText: res.redirect || res.panel_url ? 'Buka Panel' : 'Selesai',
+        background: '#1a1a1a',
+        color: '#fff',
+        confirmButtonColor: '#3b82f6',
+        customClass: {
+          popup: 'rounded-3xl border border-white/5 shadow-2xl p-8',
+          confirmButton: 'rounded-xl font-bold px-8 py-4 w-full mt-4'
+        }
+      }).then((swalRes) => {
+        if (swalRes.isConfirmed) {
+          const allowedDomain = 'panel.zelpstore.com';
+          const redirectUrl = res.redirect || res.panel_url;
+          
+          if (redirectUrl) {
+            try {
+              const urlObj = new URL(redirectUrl);
+              if (urlObj.hostname === allowedDomain) {
+                window.open(redirectUrl, '_blank', 'noopener,noreferrer');
+              } else {
+                showToast('Domain redirect tidak diizinkan.', 'error');
+              }
+            } catch (e) {
+              showToast('URL tidak valid.', 'error');
+            }
+          }
+        }
+      });
+
     } catch (err) {
-      showToast(err.message, 'error');
+      Swal.fire({
+        title: 'Gagal',
+        text: err.message,
+        icon: 'error',
+        background: '#1a1a1a',
+        color: '#fff',
+        confirmButtonColor: '#ef4444',
+        customClass: {
+          popup: 'rounded-3xl border border-white/5 shadow-2xl',
+          confirmButton: 'rounded-xl font-bold px-6 py-3'
+        }
+      });
     } finally {
       setIsQuickLoggingIn(false);
     }
@@ -99,6 +207,7 @@ export default function ServiceDetail() {
     setSelectedNest(nestId);
     setEggs([]);
     setSelectedEgg('');
+    setSelectedEggName('');
     try {
       const data = await api.get(`/pterodactyl/nests/${nestId}/eggs`);
       setEggs(data.eggs);
@@ -106,6 +215,25 @@ export default function ServiceDetail() {
       showToast('Gagal mengambil data egg', 'error');
     }
   };
+
+  const handleEggSelect = (eggId) => {
+    setSelectedEgg(eggId);
+    const egg = eggs.find(e => String(e.id) === String(eggId));
+    setSelectedEggName(egg ? egg.name : '');
+  };
+
+  // Detect if selected egg is Minecraft Java variant
+  const isMinecraftJavaEgg = () => {
+    const n = selectedEggName.toLowerCase();
+    return n.includes('minecraft') && (
+      n.includes('java') || n.includes('forge') || n.includes('fabric') ||
+      n.includes('purpur') || n.includes('paper') || n.includes('spigot') ||
+      n.includes('bukkit') || n.includes('vanilla')
+    ) && !n.includes('bedrock');
+  };
+
+  const ramMB_plan = service ? (service.ram_mb || 0) : 0;
+  const ramBlocked = isMinecraftJavaEgg() && ramMB_plan < 2048;
 
   const handleChangeEgg = async () => {
     if (!selectedNest || !selectedEgg) return showToast('Pilih Nest dan Egg dahulu', 'warning');
@@ -151,7 +279,7 @@ export default function ServiceDetail() {
               disabled={isQuickLoggingIn}
               className="btn btn-secondary px-5 py-2.5 rounded-xl font-bold flex items-center gap-2"
             >
-              {isQuickLoggingIn ? <RefreshCw className="animate-spin" size={16} /> : <Terminal size={16} />} 
+              {isQuickLoggingIn ? <RefreshCw className="animate-spin" size={16} /> : <Terminal size={16} />}
               Quick Login
             </button>
             <a
@@ -204,94 +332,213 @@ export default function ServiceDetail() {
         {service.ptero_identifier && <InfoRow label="Server ID" value={service.ptero_identifier} mono />}
       </div>
 
+      {/* Suspended Alert Banner */}
+      {service.status === 'suspended' && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 flex items-start gap-4">
+          <span className="text-2xl">🔒</span>
+          <div>
+            <p className="text-red-400 font-black text-sm">Server Disuspend — Tagihan Belum Dibayar</p>
+            <p className="text-red-300/80 text-xs font-medium mt-1">
+              Server Anda saat ini disuspend karena ada invoice yang belum dibayar. Bayar tagihan Anda untuk mengaktifkan kembali server.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Troubleshooting Section */}
       <div className="grid md:grid-cols-2 gap-6">
         <div className="card p-6 space-y-4">
           <h3 className="text-lg font-black text-text-primary">Server Management</h3>
           <p className="text-sm text-text-muted font-medium">Bermasalah dengan server Anda? Gunakan fitur berikut untuk memperbaiki server.</p>
-          <div className="flex flex-wrap gap-3">
-            <button 
-              onClick={handleRecreateIfMissing}
-              disabled={isRecreating}
-              className="btn btn-outline btn-sm flex items-center gap-2 border-dashed"
-            >
-              {isRecreating ? <RefreshCw className="animate-spin" size={14} /> : <RefreshCw size={14} />}
-              Restore Missing Server
-            </button>
-            <button 
-              onClick={openEggModal}
-              className="btn btn-outline btn-sm flex items-center gap-2 border-dashed"
-            >
-              <Server size={14} />
-              Change Server Egg
-            </button>
-          </div>
+
+          {/* Recreate button — disabled if server exists on panel OR suspended */}
+          {(() => {
+            const serverOnPanel = !!service.ptero_identifier;
+            const isSuspended = service.status === 'suspended';
+            const recreateDisabled = isRecreating || serverOnPanel || isSuspended;
+            let recreateTitle = 'Buat ulang server jika hilang dari panel';
+            if (serverOnPanel) recreateTitle = 'Server masih ada di panel — tidak perlu di-recreate';
+            if (isSuspended) recreateTitle = 'Server disuspend — bayar tagihan terlebih dahulu';
+            return (
+              <div className="flex flex-wrap gap-3">
+                <div className="relative group">
+                  <button
+                    onClick={handleRecreateIfMissing}
+                    disabled={recreateDisabled}
+                    title={recreateTitle}
+                    className={`btn btn-sm flex items-center gap-2 border-dashed transition-all ${
+                      recreateDisabled
+                        ? 'btn-outline opacity-40 cursor-not-allowed'
+                        : 'btn-outline hover:border-blue-500/60'
+                    }`}
+                  >
+                    {isRecreating ? <RefreshCw className="animate-spin" size={14} /> : <RefreshCw size={14} />}
+                    Restore Missing Server
+                  </button>
+                  {/* Tooltip reason */}
+                  {recreateDisabled && (
+                    <div className="absolute bottom-full left-0 mb-2 hidden group-hover:flex">
+                      <span className="bg-black/90 text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl whitespace-nowrap border border-white/10">
+                        {serverOnPanel ? '✅ Server ada di panel' : '🔒 Server disuspend'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <button
+                  onClick={openEggModal}
+                  disabled={service.status === 'suspended'}
+                  title={service.status === 'suspended' ? 'Aktifkan server terlebih dahulu' : 'Ganti egg server'}
+                  className={`btn btn-sm flex items-center gap-2 border-dashed ${
+                    service.status === 'suspended' ? 'btn-outline opacity-40 cursor-not-allowed' : 'btn-outline'
+                  }`}
+                >
+                  <Server size={14} />
+                  Change Server Egg
+                </button>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
       {/* Egg Change Modal */}
       {showEggModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in zoom-in duration-200">
-          <div className="card max-w-md w-full p-8 shadow-2xl relative">
-            <button 
-              onClick={() => setShowEggModal(false)}
-              className="absolute top-4 right-4 text-text-muted hover:text-text-primary transition-colors"
-            >
-              ✕
-            </button>
-            
-            <h2 className="text-2xl font-black text-text-primary mb-2">Change Server Egg</h2>
-            <p className="text-sm text-text-muted mb-6 font-medium">Ubah sistem operasi server Anda. Data lama mungkin tidak dapat terbaca jika struktur file berbeda.</p>
-            
-            <div className="space-y-4">
-              <div className="form-group">
-                <label className="text-xs font-black uppercase text-text-muted mb-1 block">Select Nest</label>
-                <select 
-                  className="input w-full"
-                  value={selectedNest}
-                  onChange={(e) => handleNestChange(e.target.value)}
-                >
-                  <option value="">Pilih Nest...</option>
-                  {nests.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-                </select>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="card max-w-2xl w-full p-0 shadow-2xl border border-white/10 overflow-hidden flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="p-6 border-b border-white/5 bg-gradient-to-r from-blue-500/10 to-transparent flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-black text-text-primary tracking-tight">Change Server Egg</h2>
+                <p className="text-xs text-text-muted mt-1 font-medium">Pilih software atau sistem operasi baru untuk server Anda.</p>
+              </div>
+              <button
+                onClick={() => setShowEggModal(false)}
+                className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-text-muted hover:text-white hover:bg-white/10 transition-all"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto custom-scrollbar space-y-8">
+              {/* Step 1: Select Nest */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center text-[10px] font-black">1</div>
+                  <label className="text-xs font-black uppercase text-text-muted tracking-widest">Select Category (Nest)</label>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {nests.map(n => (
+                    <button
+                      key={n.id}
+                      onClick={() => handleNestChange(n.id)}
+                      className={`p-4 rounded-2xl border text-left transition-all group ${
+                        String(selectedNest) === String(n.id)
+                          ? 'bg-blue-500/10 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.15)]'
+                          : 'bg-white/5 border-white/5 hover:border-white/10'
+                      }`}
+                    >
+                      <span className={`text-sm font-bold block ${String(selectedNest) === String(n.id) ? 'text-blue-400' : 'text-text-primary group-hover:text-blue-400'}`}>
+                        {n.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="form-group">
-                <label className="text-xs font-black uppercase text-text-muted mb-1 block">Select Egg</label>
-                <select 
-                  className="input w-full"
-                  value={selectedEgg}
-                  onChange={(e) => setSelectedEgg(e.target.value)}
-                  disabled={!selectedNest}
-                >
-                  <option value="">Pilih Egg...</option>
-                  {eggs.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-                </select>
-              </div>
-
-              {selectedEgg && (
-                 <div className="p-3 bg-blue-500/5 rounded-xl border border-blue-500/10 mb-2">
-                    <p className="text-[11px] text-blue-400 font-bold leading-relaxed">
-                      💡 Mengubah egg Minecraft Java memerlukan minimal 2GB RAM. Server akan di-reinstall secara otomatis.
-                    </p>
-                 </div>
+              {/* Step 2: Select Egg */}
+              {selectedNest && (
+                <div className="space-y-4 animate-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center text-[10px] font-black">2</div>
+                    <label className="text-xs font-black uppercase text-text-muted tracking-widest">Select Software (Egg)</label>
+                  </div>
+                  
+                  <div className="grid gap-3">
+                    {eggs.length > 0 ? (
+                      eggs.map(e => {
+                        const isSelected = String(selectedEgg) === String(e.id);
+                        return (
+                          <button
+                            key={e.id}
+                            onClick={() => handleEggSelect(e.id)}
+                            className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-4 ${
+                              isSelected
+                                ? 'bg-blue-500/10 border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.15)]'
+                                : 'bg-white/5 border-white/5 hover:border-white/10'
+                            }`}
+                          >
+                            <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${isSelected ? 'bg-blue-500 animate-pulse' : 'bg-white/10'}`} />
+                            <div className="space-y-1">
+                              <span className={`text-sm font-bold block ${isSelected ? 'text-blue-400' : 'text-text-primary'}`}>
+                                {e.name}
+                              </span>
+                              {e.description && (
+                                <p className="text-[10px] text-text-muted leading-relaxed line-clamp-2">
+                                  {e.description}
+                                </p>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="p-8 text-center bg-white/5 rounded-2xl border border-dashed border-white/10">
+                        <p className="text-sm text-text-muted">Loading eggs...</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
 
-              <div className="flex gap-3 pt-2">
-                <button 
-                  onClick={() => setShowEggModal(false)}
-                  className="btn btn-secondary flex-1 font-bold"
-                >
-                  Batal
-                </button>
-                <button 
-                  onClick={handleChangeEgg}
-                  disabled={isChangingEgg || !selectedEgg}
-                  className="btn btn-primary flex-1 font-bold"
-                >
-                  {isChangingEgg ? 'Processing...' : 'Simpan Perubahan'}
-                </button>
+              {/* Logic Warnings */}
+              <div className="space-y-3">
+                {/* RAM warning for Minecraft Java */}
+                {selectedEgg && isMinecraftJavaEgg() && (
+                  <div className={`p-4 rounded-2xl border flex items-center gap-4 ${
+                    ramBlocked
+                      ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                      : 'bg-green-500/10 border-green-500/30 text-green-400'
+                  }`}>
+                    <span className="text-xl">{ramBlocked ? '⚠️' : '✅'}</span>
+                    <p className="text-xs font-bold leading-relaxed">
+                      {ramBlocked
+                        ? `Minecraft Java memerlukan minimal 2GB RAM. Paket Anda hanya ${(ramMB_plan / 1024).toFixed(1)}GB.`
+                        : `RAM ${(ramMB_plan / 1024).toFixed(1)}GB mencukupi untuk Minecraft Java.`
+                      }
+                    </p>
+                  </div>
+                )}
+
+                {selectedEgg && !isMinecraftJavaEgg() && (
+                  <div className="p-4 bg-blue-500/10 rounded-2xl border border-blue-500/30 text-blue-400 flex items-center gap-4">
+                    <span className="text-xl">ℹ️</span>
+                    <p className="text-xs font-bold leading-relaxed">
+                      Server akan di-reinstall otomatis. Data lama tidak akan terhapus namun disarankan backup terlebih dahulu.
+                    </p>
+                  </div>
+                )}
               </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-white/5 bg-black/20 flex gap-3">
+              <button
+                onClick={() => setShowEggModal(false)}
+                className="btn btn-outline flex-1 font-bold py-3"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleChangeEgg}
+                disabled={isChangingEgg || !selectedEgg || ramBlocked}
+                className={`btn flex-[2] font-black tracking-wide py-3 ${
+                  ramBlocked ? 'btn-secondary opacity-50 cursor-not-allowed' : 'btn-primary shadow-[0_0_30px_rgba(59,130,246,0.3)]'
+                }`}
+              >
+                {isChangingEgg ? 'Processing...' : ramBlocked ? 'RAM Tidak Cukup' : 'Simpan Perubahan'}
+              </button>
             </div>
           </div>
         </div>

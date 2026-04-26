@@ -4,11 +4,13 @@ import { Receipt, CreditCard, Download, ArrowLeft, CheckCircle } from 'lucide-re
 import api from '../services/api';
 import { formatNumber, formatDate } from '../utils/helpers';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function InvoiceDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const showToast = useToast();
+  const { updateUser } = useAuth();
   const [invoice, setInvoice] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);

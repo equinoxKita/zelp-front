@@ -6,7 +6,7 @@ import api from '../services/api';
 import { formatNumber, formatDate, getInitials, escapeHtml } from '../utils/helpers';
 
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [invoices, setInvoices] = useState([]);
@@ -17,12 +17,16 @@ export default function Dashboard() {
     Promise.all([
       api.get('/orders'),
       api.get('/invoices'),
-      api.get('/announcements')
+      api.get('/announcements'),
+      api.get('/auth/me').catch(() => null) // Fetch latest user profile
     ])
-      .then(([ordersData, invoicesData, announcementsData]) => {
+      .then(([ordersData, invoicesData, announcementsData, profileData]) => {
         setOrders(ordersData.orders || []);
         setInvoices(invoicesData.invoices || []);
         setAnnouncements(announcementsData || []);
+        if (profileData?.user) {
+          updateUser(profileData.user);
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));

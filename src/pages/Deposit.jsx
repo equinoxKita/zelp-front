@@ -20,6 +20,11 @@ export default function Deposit() {
     api.get('/invoices?type=deposit&limit=5')
       .then((d) => setHistory(d.invoices || []))
       .catch(() => {});
+      
+    // Refresh user profile to get latest balance
+    api.get('/auth/me')
+      .then(d => { if (d.user) updateUser(d.user); })
+      .catch(() => {});
   }, []);
 
   const handleDeposit = async (e) => {
