@@ -5,7 +5,7 @@ import {
   ShieldCheck, LogOut, Bell, Zap, Eye, ArrowLeft,
   LayoutGrid, LineChart, Key, PackageCheck, Users, FileText, Ticket,
   CheckCircle, XCircle, Megaphone, Headphones, Trash2,
-  ArrowLeftCircle, Menu, X, Banknote ,Settings as SettingsIcon
+  ArrowLeftCircle, Menu, X, Banknote, Settings as SettingsIcon
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -74,19 +74,19 @@ const adminGroups = [
   },
 ];
 
-const SidebarContent = ({ 
-  user, isAdmin, isImpersonating, returnToAdmin, 
-  handleLogout, setShowNotifications, unreadCount, 
-  groups, isAdminSection, location, navigate, onClose 
+const SidebarContent = ({
+  user, isAdmin, isImpersonating, returnToAdmin,
+  handleLogout, setShowNotifications, unreadCount,
+  groups, isAdminSection, location, navigate, onClose
 }) => {
   const initial = user?.name?.charAt(0).toUpperCase() || '?';
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 overflow-hidden w-full">
       {/* Impersonation Banner */}
       {isImpersonating && (
         <button
           onClick={returnToAdmin}
-          className="flex items-center justify-center gap-2 mx-3 mb-4 p-3 bg-warning/20 text-warning border border-warning/30 rounded-xl text-xs font-black hover:bg-warning/30 transition-colors"
+          className="flex-none flex items-center justify-center gap-2 mx-3 mt-4 mb-2 p-3 bg-warning/20 text-warning border border-warning/30 rounded-xl text-xs font-black hover:bg-warning/30 transition-colors"
         >
           <ArrowLeft size={14} /> Exit Impersonation
         </button>
@@ -94,7 +94,7 @@ const SidebarContent = ({
 
       {/* User Card */}
       {user && (
-        <div className="px-3 mb-6">
+        <div className="px-3 mb-4 mt-4 flex-none">
           <button
             className="w-full flex items-center gap-3 p-3 rounded-2xl bg-white/[0.03] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all duration-300 group text-left"
             onClick={() => { navigate('/profile'); onClose?.(); }}
@@ -121,10 +121,10 @@ const SidebarContent = ({
       )}
 
       {/* Nav Groups */}
-      <nav className="flex-1 overflow-y-auto px-2 scrollbar-hide">
+      <nav className="flex-1 overflow-y-auto px-2 pb-4 scrollbar-hide">
         {/* Notifications Bell */}
         <div className="px-3 mb-4">
-          <button 
+          <button
             onClick={() => setShowNotifications(true)}
             className="w-full flex items-center justify-between p-3 rounded-xl bg-white/[0.02] border border-white/5 text-text-secondary hover:text-text-primary hover:bg-white/5 transition-all"
           >
@@ -189,7 +189,7 @@ const SidebarContent = ({
       </nav>
 
       {/* Footer */}
-      <div className="px-2 pt-2 pb-4 border-t border-white/5">
+      <div className="flex-none px-2 pt-2 pb-4 border-t border-white/5 bg-bg-card">
         {isAdminSection && (
           <NavLink
             to="/dashboard"
@@ -222,12 +222,12 @@ export default function Sidebar({ mobileOpen, onClose }) {
 
   useEffect(() => {
     let isMounted = true;
-    
+
     // Initial notifications check
     if (user) {
       api.get('/notifications').then(data => {
         if (isMounted) setUnreadCount(data.unread || 0);
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     return () => { isMounted = false; };
@@ -255,7 +255,7 @@ export default function Sidebar({ mobileOpen, onClose }) {
       {/* Desktop Sidebar */}
       <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-60 bg-bg-card border-r border-white/5 z-40 overflow-hidden">
         {/* Logo */}
-        <div className="px-4 py-5 border-b border-white/5">
+        <div className="flex-none px-4 py-5 border-b border-white/5">
           <NavLink to="/dashboard" className="flex items-center gap-2 text-text-primary no-underline">
             {branding_logo && (
               <img src={branding_logo} alt="Logo" className="h-8 w-auto object-contain" />
@@ -265,12 +265,12 @@ export default function Sidebar({ mobileOpen, onClose }) {
             </span>
           </NavLink>
         </div>
-        <SidebarContent 
-          user={user} isAdmin={isAdmin} isImpersonating={isImpersonating} 
-          returnToAdmin={returnToAdmin} handleLogout={handleLogout} 
-          setShowNotifications={setShowNotifications} unreadCount={unreadCount} 
-          groups={groups} isAdminSection={isAdminSection} 
-          location={location} navigate={navigate} onClose={onClose} 
+        <SidebarContent
+          user={user} isAdmin={isAdmin} isImpersonating={isImpersonating}
+          returnToAdmin={returnToAdmin} handleLogout={handleLogout}
+          setShowNotifications={setShowNotifications} unreadCount={unreadCount}
+          groups={groups} isAdminSection={isAdminSection}
+          location={location} navigate={navigate} onClose={onClose}
         />
       </aside>
 
@@ -284,11 +284,10 @@ export default function Sidebar({ mobileOpen, onClose }) {
 
       {/* Mobile Sidebar Drawer */}
       <aside
-        className={`lg:hidden fixed left-0 top-0 bottom-0 w-72 bg-bg-card border-r border-white/5 z-50 overflow-hidden transition-transform duration-300 ${
-          mobileOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+        className={`lg:hidden flex flex-col fixed left-0 top-0 bottom-0 w-72 bg-bg-card border-r border-white/5 z-50 overflow-hidden transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
       >
-        <div className="px-4 py-5 border-b border-white/5 flex items-center justify-between">
+        <div className="flex-none px-4 py-5 border-b border-white/5 flex items-center justify-between">
           <NavLink to="/dashboard" className="flex items-center gap-2 text-text-primary no-underline" onClick={onClose}>
             {branding_logo && (
               <img src={branding_logo} alt="Logo" className="h-8 w-auto object-contain" />
@@ -301,17 +300,17 @@ export default function Sidebar({ mobileOpen, onClose }) {
             <X size={20} />
           </button>
         </div>
-        <SidebarContent 
-          user={user} isAdmin={isAdmin} isImpersonating={isImpersonating} 
-          returnToAdmin={returnToAdmin} handleLogout={handleLogout} 
-          setShowNotifications={setShowNotifications} unreadCount={unreadCount} 
-          groups={groups} isAdminSection={isAdminSection} 
-          location={location} navigate={navigate} onClose={onClose} 
+        <SidebarContent
+          user={user} isAdmin={isAdmin} isImpersonating={isImpersonating}
+          returnToAdmin={returnToAdmin} handleLogout={handleLogout}
+          setShowNotifications={setShowNotifications} unreadCount={unreadCount}
+          groups={groups} isAdminSection={isAdminSection}
+          location={location} navigate={navigate} onClose={onClose}
         />
       </aside>
       {/* Notification Modal */}
-      <NotificationModal 
-        isOpen={showNotifications} 
+      <NotificationModal
+        isOpen={showNotifications}
         onClose={() => setShowNotifications(false)}
         onRefresh={() => api.get('/notifications').then(data => setUnreadCount(data.unread || 0))}
       />

@@ -55,7 +55,7 @@ export default function Register() {
         password: form.password,
         turnstile_token,
       });
-      login(data.token, data.user);
+      login(data.token, data.refreshToken, data.user);
       showToast('Registrasi berhasil! Selamat datang', 'success');
       navigate('/dashboard');
     } catch (err) {

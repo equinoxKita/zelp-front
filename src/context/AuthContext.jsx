@@ -7,8 +7,8 @@ export function AuthProvider({ children }) {
   const [user, setUserState] = useState(() => api.getUser());
   const [token, setTokenState] = useState(() => api.getToken());
 
-  const login = (tokenVal, userData) => {
-    api.setToken(tokenVal);
+  const login = (tokenVal, refreshTokenVal, userData) => {
+    api.setToken(tokenVal, refreshTokenVal);
     api.setUser(userData);
     setTokenState(tokenVal);
     setUserState(userData);

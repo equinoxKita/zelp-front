@@ -5,16 +5,22 @@ function getToken() {
   return localStorage.getItem('zelpstore_token');
 }
 
+function getRefreshToken() {
+  return localStorage.getItem('zelpstore_refresh_token');
+}
+
 function getAdminToken() {
   return localStorage.getItem('_admin_token');
 }
 
-export function setToken(token) {
-  localStorage.setItem('zelpstore_token', token);
+export function setToken(token, refreshToken) {
+  if (token) localStorage.setItem('zelpstore_token', token);
+  if (refreshToken) localStorage.setItem('zelpstore_refresh_token', refreshToken);
 }
 
 export function removeToken() {
   localStorage.removeItem('zelpstore_token');
+  localStorage.removeItem('zelpstore_refresh_token');
 }
 
 export function getUser() {
@@ -42,6 +48,16 @@ export function isAdmin() {
 }
 
 export function logout() {
+  const refreshToken = getRefreshToken();
+  // Optional: call logout on backend to revoke token
+  if (refreshToken) {
+    fetch(`${BASE_URL}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    }).catch(() => {});
+  }
+  
   removeToken();
   removeUser();
   localStorage.removeItem('_admin_token');
@@ -64,10 +80,20 @@ export function returnToAdmin() {
   window.location.href = '/admin';
 }
 
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+function subscribeTokenRefresh(cb) {
+  refreshSubscribers.push(cb);
+}
+
+function onRefreshed(token) {
+  refreshSubscribers.map(cb => cb(token));
+  refreshSubscribers = [];
+}
+
 async function request(endpoint, options = {}) {
   const url = `${BASE_URL}${endpoint}`;
-  
-  // If body is FormData, let the browser set Content-Type with boundary
   const isFormData = options.body instanceof FormData;
   
   const headers = {
@@ -80,15 +106,60 @@ async function request(endpoint, options = {}) {
 
   try {
     const response = await fetch(url, { ...options, headers });
+    
+    // Handle 401 - Unauthorized (Token Expired)
+    if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/refresh')) {
+      const refreshToken = getRefreshToken();
+      
+      if (refreshToken) {
+        if (!isRefreshing) {
+          isRefreshing = true;
+          try {
+            const refreshRes = await fetch(`${BASE_URL}/auth/refresh`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refreshToken })
+            });
+
+            if (refreshRes.ok) {
+              const refreshData = await refreshRes.json();
+              setToken(refreshData.token, refreshData.refreshToken);
+              isRefreshing = false;
+              onRefreshed(refreshData.token);
+            } else {
+              // Refresh failed
+              isRefreshing = false;
+              logout();
+              throw new Error('Sesi berakhir');
+            }
+          } catch (err) {
+            isRefreshing = false;
+            logout();
+            throw err;
+          }
+        }
+
+        // Wait for refresh to complete
+        const newToken = await new Promise(resolve => {
+          subscribeTokenRefresh(token => resolve(token));
+        });
+
+        // Retry original request with new token
+        headers['Authorization'] = `Bearer ${newToken}`;
+        const retryRes = await fetch(url, { ...options, headers });
+        return await retryRes.json();
+      } else {
+        // No refresh token, just logout
+        logout();
+      }
+    }
+
     const data = await response.json();
 
     if (!response.ok) {
       if (response.status === 401 || (response.status === 404 && endpoint === '/auth/me')) {
-        removeToken();
-        removeUser();
-        if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
-          window.location.href = '/login';
-        }
+        // Logic handled above or fallback
+        if (!isRefreshing) logout();
       }
       throw new Error(data.error || 'Terjadi kesalahan');
     }

@@ -61,7 +61,7 @@ export default function Login() {
         return;
       }
 
-      login(data.token, data.user);
+      login(data.token, data.refreshToken, data.user);
       showToast('Login berhasil!', 'success');
       navigate('/dashboard');
     } catch (err) {

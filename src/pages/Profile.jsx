@@ -6,7 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 
 export default function Profile() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
   const showToast = useToast();
   const [profile, setProfile] = useState({ name: '', email: '' });
   const [passwords, setPasswords] = useState({ current: '', newPass: '', confirm: '' });
@@ -52,6 +52,12 @@ export default function Profile() {
     } finally {
       setPwLoading(false);
     }
+  };
+
+  const handleLogout = () => {
+    logout();
+    showToast('Logout berhasil', 'success');
+    navigate('/');
   };
 
   return (
