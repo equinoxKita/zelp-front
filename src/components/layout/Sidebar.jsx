@@ -5,7 +5,7 @@ import {
   ShieldCheck, LogOut, Bell, Zap, Eye, ArrowLeft,
   LayoutGrid, LineChart, Key, PackageCheck, Users, FileText, Ticket,
   CheckCircle, XCircle, Megaphone, Headphones, Trash2,
-  ArrowLeftCircle, Menu, X, Settings as SettingsIcon
+  ArrowLeftCircle, Menu, X, Banknote ,Settings as SettingsIcon
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
@@ -25,7 +25,7 @@ const userGroups = [
     label: 'Billing',
     links: [
       { to: '/transactions', icon: Receipt, label: 'Invoices' },
-      { to: '/deposit', icon: Wallet, label: 'Top Up' },
+      { to: '/deposit', icon: Banknote, label: 'Top Up' },
     ],
   },
   {
@@ -39,22 +39,23 @@ const userGroups = [
 
 const adminGroups = [
   {
-    label: 'System Control',
+    label: 'Overview',
     links: [
-      { to: '/admin', icon: LayoutGrid, label: 'Overview', exact: true },
+      { to: '/admin', icon: LayoutGrid, label: 'Dashboard', exact: true },
       { to: '/admin?tab=stats', icon: LineChart, label: 'Analytics' },
+      { to: '/admin?tab=announcements', icon: Megaphone, label: 'Announcements' },
     ],
   },
   {
-    label: 'Resources',
+    label: 'Management',
     links: [
-      { to: '/admin?tab=subscriptions', icon: PackageCheck, label: 'Subscriptions' },
+      { to: '/admin?tab=subscriptions', icon: PackageCheck, label: 'Services' },
       { to: '/admin?tab=plans', icon: Server, label: 'Plans' },
       { to: '/admin?tab=users', icon: Users, label: 'Users' },
     ],
   },
   {
-    label: 'Billing & Promo',
+    label: 'Financial',
     links: [
       { to: '/admin?tab=invoices', icon: FileText, label: 'Invoices' },
       { to: '/admin?tab=promo', icon: Ticket, label: 'Promo Codes' },
@@ -63,18 +64,12 @@ const adminGroups = [
     ],
   },
   {
-    label: 'Support & Content',
+    label: 'System',
     links: [
-      { to: '/admin?tab=announcements', icon: Megaphone, label: 'Announce' },
       { to: '/admin?tab=kb', icon: BookOpen, label: 'Knowledge Base' },
-    ],
-  },
-  {
-    label: 'Maintenance',
-    links: [
-      { to: '/admin?tab=cleanup', icon: Trash2, label: 'Cleanup' },
+      { to: '/admin?tab=cleanup', icon: Trash2, label: 'Maintenance' },
       { to: '/admin?tab=bulk', icon: Zap, label: 'Bulk Actions' },
-      { to: '/admin?tab=settings', icon: SettingsIcon, label: 'System Settings' },
+      { to: '/admin?tab=settings', icon: SettingsIcon, label: 'Settings' },
     ],
   },
 ];
@@ -169,9 +164,9 @@ const SidebarContent = ({
                   to={link.to}
                   end={link.exact}
                   onClick={onClose}
-                  className={`sidebar-link mb-0.5 ${isActive ? 'active' : ''}`}
+                  className={`sidebar-link ${isActive ? 'active' : ''}`}
                 >
-                  <Icon size={20} className="flex-shrink-0" />
+                  <Icon size={18} className="flex-shrink-0" />
                   <span>{link.label}</span>
                 </NavLink>
               );
@@ -199,11 +194,10 @@ const SidebarContent = ({
           <NavLink
             to="/dashboard"
             onClick={onClose}
-            className="sidebar-link mb-1"
-            style={{ background: 'rgba(66,200,245,0.1)', color: '#42C8F5', border: '1px solid rgba(66,200,245,0.2)' }}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl text-accent-primary bg-accent-primary/10 border border-accent-primary/20 hover:bg-accent-primary/20 transition-all mb-3 group"
           >
-            <ArrowLeftCircle size={20} />
-            <span className="font-bold">Client Area</span>
+            <ArrowLeftCircle size={18} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="text-xs font-black uppercase tracking-wider">Client Area</span>
           </NavLink>
         )}
         <button
@@ -259,7 +253,7 @@ export default function Sidebar({ mobileOpen, onClose }) {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-64 bg-bg-card border-r border-white/5 z-40 overflow-hidden">
+      <aside className="hidden lg:flex flex-col fixed left-0 top-0 bottom-0 w-60 bg-bg-card border-r border-white/5 z-40 overflow-hidden">
         {/* Logo */}
         <div className="px-4 py-5 border-b border-white/5">
           <NavLink to="/dashboard" className="flex items-center gap-2 text-text-primary no-underline">

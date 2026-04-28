@@ -307,7 +307,7 @@ export default function ServiceDetail() {
         <StatCard
           label="RAM"
           value={`${ramMB} MB`}
-          percent={service.ram_mb ? Math.round((parseFloat(ramMB) / service.ram_mb) * 100) : 0}
+          percent={(service.ram_mb && parseFloat(ramMB)) ? Math.round((parseFloat(ramMB) / service.ram_mb) * 100) : 0}
           color="#10b981"
           icon={Database}
           limit={formatMB(service.ram_mb)}
@@ -315,7 +315,7 @@ export default function ServiceDetail() {
         <StatCard
           label="Disk"
           value={`${diskMB} MB`}
-          percent={totalDisk ? Math.round((parseFloat(diskMB) / totalDisk) * 100) : 0}
+          percent={(totalDisk && parseFloat(diskMB)) ? Math.round((parseFloat(diskMB) / totalDisk) * 100) : 0}
           color="#f59e0b"
           icon={HardDrive}
           limit={formatMB(totalDisk)}
@@ -334,7 +334,7 @@ export default function ServiceDetail() {
 
       {/* Suspended Alert Banner */}
       {service.status === 'suspended' && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 flex items-start gap-4">
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 flex items-start gap-4 animate-in slide-in-from-top-2">
           <span className="text-2xl">🔒</span>
           <div>
             <p className="text-red-400 font-black text-sm">Server Disuspend — Tagihan Belum Dibayar</p>
@@ -345,20 +345,38 @@ export default function ServiceDetail() {
         </div>
       )}
 
+      {/* Pending Alert Banner */}
+      {service.status === 'pending' && (
+        <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-5 flex items-start gap-4 animate-in slide-in-from-top-2">
+          <span className="text-2xl">⏳</span>
+          <div>
+            <p className="text-yellow-500 font-black text-sm">Menunggu Pembayaran</p>
+            <p className="text-yellow-400/80 text-xs font-medium mt-1">
+              Server Anda sedang menunggu pembayaran invoice. Server akan otomatis aktif setelah pembayaran berhasil diverifikasi.
+            </p>
+            <button onClick={() => navigate('/invoices')} className="mt-3 text-[10px] font-black uppercase tracking-widest bg-yellow-500 text-black px-3 py-1.5 rounded-lg hover:bg-yellow-400 transition-colors">
+              Lihat Invoice
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Troubleshooting Section */}
       <div className="grid md:grid-cols-2 gap-6">
         <div className="card p-6 space-y-4">
           <h3 className="text-lg font-black text-text-primary">Server Management</h3>
           <p className="text-sm text-text-muted font-medium">Bermasalah dengan server Anda? Gunakan fitur berikut untuk memperbaiki server.</p>
 
-          {/* Recreate button — disabled if server exists on panel OR suspended */}
+          {/* Recreate button — disabled if server exists on panel OR not active */}
           {(() => {
             const serverOnPanel = !!service.ptero_identifier;
-            const isSuspended = service.status === 'suspended';
-            const recreateDisabled = isRecreating || serverOnPanel || isSuspended;
+            const isActive = service.status === 'active';
+            const recreateDisabled = isRecreating || serverOnPanel || !isActive;
+            
             let recreateTitle = 'Buat ulang server jika hilang dari panel';
             if (serverOnPanel) recreateTitle = 'Server masih ada di panel — tidak perlu di-recreate';
-            if (isSuspended) recreateTitle = 'Server disuspend — bayar tagihan terlebih dahulu';
+            if (!isActive) recreateTitle = `Server ${service.status} — bayar tagihan terlebih dahulu`;
+            
             return (
               <div className="flex flex-wrap gap-3">
                 <div className="relative group">
@@ -379,7 +397,7 @@ export default function ServiceDetail() {
                   {recreateDisabled && (
                     <div className="absolute bottom-full left-0 mb-2 hidden group-hover:flex">
                       <span className="bg-black/90 text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl whitespace-nowrap border border-white/10">
-                        {serverOnPanel ? '✅ Server ada di panel' : '🔒 Server disuspend'}
+                        {serverOnPanel ? '✅ Server ada di panel' : `🔒 Server ${service.status}`}
                       </span>
                     </div>
                   )}
@@ -387,10 +405,10 @@ export default function ServiceDetail() {
 
                 <button
                   onClick={openEggModal}
-                  disabled={service.status === 'suspended'}
-                  title={service.status === 'suspended' ? 'Aktifkan server terlebih dahulu' : 'Ganti egg server'}
+                  disabled={service.status !== 'active'}
+                  title={service.status !== 'active' ? `Server ${service.status} — aktifkan server terlebih dahulu` : 'Ganti egg server'}
                   className={`btn btn-sm flex items-center gap-2 border-dashed ${
-                    service.status === 'suspended' ? 'btn-outline opacity-40 cursor-not-allowed' : 'btn-outline'
+                    service.status !== 'active' ? 'btn-outline opacity-40 cursor-not-allowed' : 'btn-outline'
                   }`}
                 >
                   <Server size={14} />

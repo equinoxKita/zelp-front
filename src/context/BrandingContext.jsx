@@ -8,7 +8,8 @@ export function BrandingProvider({ children }) {
     branding_name: 'ZelpStore',
     branding_logo: null,
     branding_icon: null,
-    enable_landing_page: true
+    enable_landing_page: true,
+    payment_gateway: null
   });
   const [loading, setLoading] = useState(true);
 
@@ -19,7 +20,8 @@ export function BrandingProvider({ children }) {
           branding_name: data.branding_name || 'ZelpStore',
           branding_logo: data.branding_logo,
           branding_icon: data.branding_icon,
-          enable_landing_page: data.enable_landing_page !== false
+          enable_landing_page: data.enable_landing_page !== false,
+          payment_gateway: data.payment_gateway
         });
 
         // Update favicon if icon exists

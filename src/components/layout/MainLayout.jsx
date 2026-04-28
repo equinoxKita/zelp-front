@@ -65,23 +65,21 @@ export default function MainLayout() {
             mobileOpen={mobileSidebarOpen}
             onClose={() => setMobileSidebarOpen(false)}
           />
-          
+
           {/* Mobile Header Bar */}
-          <header 
-            className={`lg:hidden fixed top-0 left-0 right-0 z-30 transition-all duration-300 ${
-              isScrolled 
-                ? 'bg-bg-card/95 backdrop-blur-md border-b border-white/10 shadow-lg' 
+          <header
+            className={`lg:hidden fixed top-0 left-0 right-0 z-30 transition-all duration-300 ${isScrolled
+                ? 'bg-bg-card/95 backdrop-blur-md border-b border-white/10 shadow-lg'
                 : 'bg-transparent'
-            }`}
+              }`}
           >
             <div className="flex items-center justify-between px-4 h-16">
               {/* Hamburger Button */}
               <button
-                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${
-                  mobileSidebarOpen 
-                    ? 'bg-accent-primary text-white rotate-90' 
+                className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 ${mobileSidebarOpen
+                    ? 'bg-accent-primary text-white rotate-90'
                     : 'bg-bg-card border border-white/10 text-text-secondary hover:text-text-primary hover:border-accent-primary/50'
-                }`}
+                  }`}
                 onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
                 aria-label={mobileSidebarOpen ? "Close menu" : "Open menu"}
               >
@@ -117,9 +115,8 @@ export default function MainLayout() {
 
       {/* Main Content */}
       <main
-        className={`min-h-screen transition-all duration-300 ${
-          showSidebar ? 'lg:ml-64' : ''
-        } ${showSidebar ? 'pt-16 lg:pt-0' : ''}`}
+        className={`min-h-screen transition-all duration-300 ${showSidebar ? 'lg:ml-60' : ''
+          } ${showSidebar ? 'pt-16 lg:pt-0' : ''}`}
       >
         <Outlet />
       </main>

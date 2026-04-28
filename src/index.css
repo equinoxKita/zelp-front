@@ -121,10 +121,15 @@
 
   /* Sidebar link */
   .sidebar-link {
-    @apply flex items-center gap-3.5 px-4 py-2.5 rounded-xl text-text-secondary font-semibold text-sm hover:bg-white/5 hover:text-text-primary transition-all duration-200 cursor-pointer;
+    @apply flex items-center gap-3 px-4 py-2 rounded-xl text-text-secondary font-bold text-[13px] hover:bg-white/[0.03] hover:text-text-primary transition-all duration-200 cursor-pointer border border-transparent mb-1;
   }
   .sidebar-link.active {
-    @apply bg-accent-primary/10 text-accent-primary border border-accent-primary/20;
+    @apply bg-accent-primary/10 text-accent-primary border-accent-primary/20 shadow-[0_0_15px_rgba(66,200,245,0.1)];
+    position: relative;
+  }
+  .sidebar-link.active::before {
+    content: '';
+    @apply absolute left-0 top-1/4 bottom-1/4 w-1 bg-accent-primary rounded-full shadow-glow;
   }
 
   /* Gradient text */
