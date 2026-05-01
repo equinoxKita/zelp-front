@@ -56,9 +56,7 @@ const ImageUpload = ({ label, value, onUpload, type }) => {
 
     try {
       setUploading(true);
-      const res = await api.post('/settings/upload-branding', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const res = await api.post('/settings/upload-branding', formData);
       onUpload(res.url);
       showToast(`${label} berhasil diunggah!`, 'success');
     } catch (err) {
