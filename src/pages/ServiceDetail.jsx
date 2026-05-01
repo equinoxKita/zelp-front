@@ -280,7 +280,7 @@ export default function ServiceDetail() {
               className="btn btn-secondary px-5 py-2.5 rounded-xl font-bold flex items-center gap-2"
             >
               {isQuickLoggingIn ? <RefreshCw className="animate-spin" size={16} /> : <Terminal size={16} />}
-              Quick Login
+              Login Ke Panel
             </button>
             <a
               href={`https://panel.zelpstore.com`}

@@ -21,15 +21,48 @@ export default function Subscriptions() {
   const [orders, setOrders] = useState([]);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [extendModalOpen, setExtendModalOpen] = useState(false);
+  const [selectedOrderForExtend, setSelectedOrderForExtend] = useState(null);
+  const [extendMonths, setExtendMonths] = useState(1);
+  const [extendLoading, setExtendLoading] = useState(false);
   const showToast = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const fetchOrders = () => {
     api.get('/orders')
       .then((d) => setOrders(d.orders || []))
       .catch((err) => showToast(err.message, 'error'))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchOrders();
   }, []);
+
+  const handleExtendClick = (order) => {
+    setSelectedOrderForExtend(order);
+    setExtendMonths(1);
+    setExtendModalOpen(true);
+  };
+
+  const handleConfirmExtend = async () => {
+    if (!selectedOrderForExtend) return;
+    setExtendLoading(true);
+    try {
+      const res = await api.post(`/orders/${selectedOrderForExtend.id}/renew`, { months: extendMonths });
+      showToast(res.message, 'success');
+      setExtendModalOpen(false);
+      if (res.invoice_id && !res.auto_paid) {
+        navigate(`/invoices/${res.invoice_id}`);
+      } else {
+        fetchOrders();
+      }
+    } catch (err) {
+      showToast(err.message || 'Gagal memperpanjang layanan', 'error');
+    } finally {
+      setExtendLoading(false);
+    }
+  };
 
   const filtered = (filter === 'all' ? orders : orders.filter((o) => o.status === filter))
     .sort((a, b) => {
@@ -121,7 +154,7 @@ export default function Subscriptions() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filtered.map((o) => <ServerCard key={o.id} order={o} onNavigate={navigate} />)}
+          {filtered.map((o) => <ServerCard key={o.id} order={o} onNavigate={navigate} onExtend={handleExtendClick} />)}
         </div>
       )}
 
@@ -155,11 +188,56 @@ export default function Subscriptions() {
           ))}
         </div>
       </div>
+
+      {/* Extend Modal */}
+      {extendModalOpen && selectedOrderForExtend && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-bg-card border border-white/10 rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
+            <button
+              onClick={() => setExtendModalOpen(false)}
+              className="absolute top-4 right-4 text-text-muted hover:text-white transition-colors"
+            >
+              <XCircle size={24} />
+            </button>
+            <h2 className="text-xl font-black text-white mb-2">Perpanjang Layanan</h2>
+            <p className="text-text-muted text-sm mb-6">
+              Pilih durasi perpanjangan untuk <span className="text-white font-bold">{selectedOrderForExtend.server_name || 'Virtual Instance'}</span>.
+            </p>
+            
+            <div className="space-y-3 mb-6">
+              {[1, 3, 6, 12].map(m => (
+                <button
+                  key={m}
+                  onClick={() => setExtendMonths(m)}
+                  className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                    extendMonths === m 
+                      ? 'bg-blue-500/10 border-blue-500/50 text-white' 
+                      : 'bg-white/5 border-white/5 text-text-muted hover:bg-white/10'
+                  }`}
+                >
+                  <span className="font-bold">{m} Bulan</span>
+                  <span className="font-black">
+                    Rp {formatNumber((selectedOrderForExtend.plan_price || (selectedOrderForExtend.total_price / (selectedOrderForExtend.period_months || 1))) * m * (m === 3 ? 0.95 : m === 6 ? 0.90 : m === 12 ? 0.85 : 1))}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={handleConfirmExtend}
+              disabled={extendLoading}
+              className="w-full btn btn-primary py-3 rounded-2xl font-black disabled:opacity-50"
+            >
+              {extendLoading ? 'Memproses...' : 'Lanjutkan Pembayaran'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function ServerCard({ order: o, onNavigate }) {
+function ServerCard({ order: o, onNavigate, onExtend }) {
   const sc = STATUS_CONFIG[o.status] || STATUS_CONFIG.active;
   const Icon = sc.Icon;
   const daysLeft = o.expires_at ? Math.ceil((new Date(o.expires_at) - new Date()) / (1000 * 60 * 60 * 24)) : null;
@@ -232,10 +310,15 @@ function ServerCard({ order: o, onNavigate }) {
               <ArrowRightCircle size={16} className="group-hover:translate-x-1 transition-transform" />
               <span>Manage Unit</span>
             </button>
-            <button className="flex-1 sm:flex-none btn btn-secondary px-6 py-3 rounded-2xl text-xs font-black">
-              <RefreshCw size={14} />
-              <span>Extend</span>
-            </button>
+            {o.status !== 'cancelled' && (
+              <button 
+                onClick={() => onExtend(o)}
+                className="flex-1 sm:flex-none btn btn-secondary px-6 py-3 rounded-2xl text-xs font-black"
+              >
+                <RefreshCw size={14} />
+                <span>Extend</span>
+              </button>
+            )}
           </div>
 
           <div className="text-right w-full sm:w-auto">
